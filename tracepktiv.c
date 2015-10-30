@@ -1,4 +1,4 @@
-/* This program uses libtrace to produce packet inter-arrival time stats
+/* This program uses libtrace to calculate packet inter-arrival time stats.
  *
  * Author: Anna-Kaisa Pietilainen
  */
@@ -43,11 +43,11 @@ struct {
 static int OUT = 0;
 static int IN = 1;
 
-static void print_hdr() {
-  fprintf(stdout, "ts,pkts,out pkts,out bytes,out min,out max,out avg,out std,out cv,in pkts,in bytes,in min,in max,in avg,in std,in cv\n");
+static void print_report_hdr() {
+  fprintf(stdout, "ts,out pkts,out bytes,out min,out max,out avg,out std,out cv,in pkts,in bytes,in min,in max,in avg,in std,in cv\n");
 };
 
-static void reset_stats() {
+static void reset_report() {
   int dir;
   for (dir = 0; dir < 2; dir++) {  
     reports[dir].count = 0;
@@ -59,7 +59,7 @@ static void reset_stats() {
   }
 }
 
-static void print_stats(double ts) {
+static void print_report(double ts) {
   int dir;
   fprintf(stdout, "%.03f",ts);
   for (dir = 0; dir < 2; dir++) {  
@@ -82,7 +82,7 @@ static void print_stats(double ts) {
 	    mean,std,cv);
   }
   fprintf(stdout, "\n");
-  reset_stats();
+  reset_report();
   ++reported;
 }
 
@@ -104,9 +104,9 @@ static void per_packet(libtrace_packet_t *packet)
 	   (report_periods == UINT64_MAX || reported < report_periods)) {
       last_report_ts+=packet_interval;
       if (report_rel_time) {
-	print_stats(packet_interval);
+	print_report(packet_interval);
       } else {
-	print_stats(last_report_ts);
+	print_report(last_report_ts);
       }
     }
     
@@ -129,18 +129,19 @@ static void per_packet(libtrace_packet_t *packet)
 	(reports[OUT].count+reports[IN].count)%packet_count == 0 &&
 	(report_periods == UINT64_MAX || reported < report_periods)) {
       if (report_rel_time) {
-	print_stats(ts-last_report_ts);
+	print_report(ts-last_report_ts);
       } else {
-	print_stats(ts);
+	print_report(ts);
       }
       last_report_ts = ts;
     }
+
     last_packet_ts = ts;
 }
 
 static void usage(char *argv0)
 {
-	fprintf(stderr,"usage: %s [-i iv| --interval] [-c packets| --count] [-e periods| --exit] [ --filter | -f bpfexp ]\n\t\t[ --help | -h ] [ --libtrace-help | -H ] libtraceuri...\n",argv0);
+  fprintf(stderr,"usage: %s [-i iv| --interval] [-c packets| --count] [-e periods| --exit] [-r | --relative] [ --filter | -f bpfexp ]\n\t\t[ --help | -h ] [ --libtrace-help | -H ] libtraceuri...\n",argv0);
 }
 
 int main(int argc, char *argv[]) {
@@ -227,8 +228,8 @@ int main(int argc, char *argv[]) {
 
     packet = trace_create_packet();
     
-    print_hdr();
-    reset_stats();
+    print_report_hdr();
+    reset_report();
     last_report_ts = 0;
     last_packet_ts = 0;
 
@@ -244,9 +245,9 @@ int main(int argc, char *argv[]) {
 	(packet_interval == UINT32_MAX && packet_count == UINT64_MAX)) {
       double ts = trace_get_seconds(packet);
       if (report_rel_time) {
-	print_stats(ts-last_report_ts);
+	print_report(ts-last_report_ts);
       } else {
-	print_stats(ts);
+	print_report(ts);
       }
     }
 
